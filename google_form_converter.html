@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Googleフォーム 回答変換ツール</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+  :root {
+    --bg:#f5f4f0;--surface:#fff;--surface2:#f9f8f5;--border:#e0ddd6;
+    --text:#1a1a18;--text2:#6b6a65;--text3:#9b9a95;
+    --accent:#2a5fa8;--accent-bg:#eef3fc;
+    --success:#1a7a4a;--success-bg:#edf7f2;
+    --warn:#8a5e00;--warn-bg:#fef8e7;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.7}
+
+  /* ヘッダー */
+  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:1rem 2rem;display:flex;align-items:center;gap:14px}
+  .header-icon{width:36px;height:36px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;flex-shrink:0}
+  .header-title{font-size:15px;font-weight:700}
+  .header-sub{font-size:12px;color:var(--text2)}
+
+  .main{max-width:900px;margin:0 auto;padding:2rem 1.5rem}
+
+  /* ステップ表示 */
+  .steps-row{display:flex;gap:0;margin-bottom:1.5rem;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .step-tab{flex:1;padding:10px 8px;text-align:center;font-size:12px;color:var(--text3);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:3px}
+  .step-tab:last-child{border-right:none}
+  .step-tab.active{background:var(--accent-bg);color:var(--accent)}
+  .step-tab.done{color:var(--success)}
+  .step-num{width:20px;height:20px;border-radius:50%;border:1.5px solid currentColor;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700}
+  .step-label{font-size:11px}
+
+  /* ドロップゾーン */
+  .dropzone{
+    background:var(--surface);border:2px dashed var(--border);border-radius:12px;
+    padding:2.5rem 1.5rem;text-align:center;cursor:pointer;
+    transition:border-color .2s,background .2s;margin-bottom:1rem;position:relative;
+  }
+  .dropzone:hover,.dropzone.drag-over{border-color:var(--accent);background:var(--accent-bg)}
+  .dropzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+  .drop-icon{font-size:36px;margin-bottom:10px}
+  .drop-title{font-size:14px;font-weight:700;margin-bottom:4px}
+  .drop-sub{font-size:12px;color:var(--text2)}
+  .drop-hint{font-size:11px;color:var(--text3);margin-top:6px}
+
+  /* 設定パネル */
+  .config-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;margin-bottom:1rem}
+  .config-title{font-size:13px;font-weight:700;margin-bottom:12px;color:var(--text2)}
+  .config-row{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
+  .config-label{font-size:12px;color:var(--text2);min-width:120px}
+  select,input[type=text]{
+    padding:7px 10px;border:1px solid var(--border);border-radius:7px;
+    font-size:13px;background:var(--surface2);color:var(--text);
+    font-family:inherit;outline:none;
+  }
+  select:focus,input[type=text]:focus{border-color:var(--accent)}
+  .config-hint{font-size:11px;color:var(--text3);margin-top:-6px;margin-bottom:10px}
+
+  /* 列設定テーブル */
+  .col-table{width:100%;border-collapse:collapse;font-size:12px}
+  .col-table th{background:var(--surface2);padding:7px 10px;text-align:left;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border)}
+  .col-table td{padding:7px 10px;border-bottom:1px solid var(--border);vertical-align:middle}
+  .col-table tr:last-child td{border-bottom:none}
+  .col-toggle{display:flex;align-items:center;gap:6px}
+  input[type=checkbox]{width:15px;height:15px;cursor:pointer;accent-color:var(--accent)}
+
+  /* ボタン */
+  .btn-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem}
+  .btn{padding:9px 20px;border-radius:8px;border:none;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+  .btn:active{transform:scale(0.97)}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{opacity:.88}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+  .btn-ghost:hover{background:var(--bg)}
+  .btn-print{background:#1a1a18;color:#fff}
+  .btn-print:hover{opacity:.85}
+  .btn-sm{padding:5px 12px;font-size:12px}
+
+  /* ステータス */
+  .status{font-size:12px;padding:8px 12px;border-radius:8px;margin-bottom:1rem}
+  .status-ok{background:var(--success-bg);color:var(--success)}
+  .status-err{background:#fdf0f0;color:#a02020}
+
+  /* サマリー */
+  .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:1.5rem}
+  .stat{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:14px 16px;text-align:center}
+  .stat-num{font-size:26px;font-weight:700;color:var(--accent);line-height:1}
+  .stat-label{font-size:11px;color:var(--text2);margin-top:4px}
+
+  /* 個人カード */
+  .cards-title{font-size:14px;font-weight:700;margin-bottom:12px}
+  .cards{display:flex;flex-direction:column;gap:16px}
+  .pcard{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem}
+  .pcard-head{display:flex;align-items:center;gap:14px;padding-bottom:12px;border-bottom:1px solid var(--border);margin-bottom:14px}
+  .avatar{width:44px;height:44px;min-width:44px;border-radius:50%;background:var(--accent-bg);color:var(--accent);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+  .pname{font-size:15px;font-weight:500;color:var(--text2)}
+  .pmeta{font-size:17px;font-weight:700;color:var(--text);margin-bottom:2px}
+  .pform-name{font-size:11px;color:var(--text3)}
+  .pgrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pf{background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px}
+  .pf.wide{grid-column:1/-1}
+  .pfl{font-size:11px;color:var(--text3);margin-bottom:3px;font-weight:500}
+  .pfv{font-size:13px;color:var(--text);line-height:1.7}
+  .pfv.empty{color:var(--text3);font-style:italic}
+
+  .empty-state{text-align:center;padding:3rem 1rem;color:var(--text2);background:var(--surface);border:1px dashed var(--border);border-radius:12px}
+
+  @media print {
+    .no-print{display:none!important}
+    body{background:#fff}
+    .pcard{page-break-after:always;break-after:page;border:1pt solid #ccc;border-radius:0;padding:20pt 24pt;margin:0}
+    .pcard:last-child{page-break-after:avoid}
+    .cards{gap:0}
+    .summary,.cards-title{display:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="no-print">
+  <div class="header">
+    <div class="header-icon">📋</div>
+    <div>
+      <div class="header-title">Googleフォーム 回答変換ツール</div>
+      <div class="header-sub">どんなフォームのCSVでも個人シートに変換して印刷できます</div>
+    </div>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ステップ -->
+  <div class="steps-row no-print" id="stepsRow">
+    <div class="step-tab active" id="st1"><div class="step-num">1</div><div class="step-label">CSVを読み込む</div></div>
+    <div class="step-tab" id="st2"><div class="step-num">2</div><div class="step-label">列の設定</div></div>
+    <div class="step-tab" id="st3"><div class="step-num">3</div><div class="step-label">確認・印刷</div></div>
+  </div>
+
+  <!-- STEP1: ドロップゾーン -->
+  <div id="step1">
+    <div class="dropzone" id="dropzone">
+      <input type="file" accept=".csv" id="fileInput" onchange="onFileSelect(this)">
+      <div class="drop-icon">📂</div>
+      <div class="drop-title">CSVファイルをここにドロップ</div>
+      <div class="drop-sub">またはクリックしてファイルを選択</div>
+      <div class="drop-hint">スプレッドシート → ファイル → ダウンロード → CSV でダウンロードしたファイルをそのままドロップ</div>
+    </div>
+    <div class="btn-row no-print">
+      <button class="btn btn-ghost" onclick="loadSample()">サンプルで試す</button>
+    </div>
+  </div>
+
+  <!-- STEP2: 列設定 -->
+  <div id="step2" style="display:none">
+    <div class="config-card">
+      <div class="config-title">基本設定</div>
+      <div class="config-row">
+        <span class="config-label">フォーム名（印刷に表示）</span>
+        <input type="text" id="formName" style="flex:1;min-width:200px" placeholder="例：障害者虐待防止研修 受講後アンケート">
+      </div>
+      <div class="config-row">
+        <span class="config-label">お名前の列</span>
+        <select id="nameCol" style="flex:1;max-width:300px"></select>
+      </div>
+      <div class="config-hint">※ お名前列はカードのタイトルに使われます。名前がない場合は「なし」を選択してください。</div>
+    </div>
+
+    <div class="config-card">
+      <div class="config-title">表示する列を選択（チェックを外すと非表示）</div>
+      <table class="col-table">
+        <thead><tr><th style="width:36px">表示</th><th>列名</th><th>幅</th><th>サンプル値</th></tr></thead>
+        <tbody id="colTableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="btn-row no-print">
+      <button class="btn btn-primary" onclick="buildCards()">個人シートを生成 →</button>
+      <button class="btn btn-ghost" onclick="backToStep1()">← やり直す</button>
+    </div>
+  </div>
+
+  <!-- STEP3: 結果 -->
+  <div id="step3" style="display:none">
+    <div class="btn-row no-print">
+      <button class="btn btn-print" onclick="window.print()">🖨 印刷する</button>
+      <button class="btn btn-ghost" onclick="backToStep2()">← 設定に戻る</button>
+      <button class="btn btn-ghost" onclick="backToStep1()">← 別のCSVを読み込む</button>
+    </div>
+    <div id="statusArea"></div>
+    <div id="summaryArea"></div>
+    <div id="cardsArea"></div>
+  </div>
+
+  <!-- 初期空状態 -->
+  <div id="emptyState">
+    <div class="empty-state">
+      <div style="font-size:32px;margin-bottom:12px">📝</div>
+      <div>CSVファイルをドロップして始めてください</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+var gHeaders=[], gRows=[], gFilename='';
+
+// サンプルデータ
+var SAMPLE_CSV = 'タイムスタンプ,お名前（任意）,研修内容のわかりやすさ（1〜5）,現場で活かせそうか,印象に残った内容,現場での困りごと・不安,感想・要望\n'+
+'2025/04/10 10:30:00,山田 花子,5,はい,通報義務は疑いの段階でよい点,強度行動障害への対応で迷うことがある,事例がリアルでわかりやすかった\n'+
+'2025/04/10 10:32:00,田中 一郎,4,まあまあ,深刻化した事例の10の共通点,特になし,もう少し事例を増やしてほしい\n'+
+'2025/04/10 10:35:00,鈴木 美咲,3,わからない,心理的虐待の定義が意外だった,利用者さんの気持ちが読めないとき,グループワークがあると良かった\n'+
+'2025/04/10 10:38:00,佐藤 健太,5,はい,早期通報の重要性と全員を守る視点,夜勤帯に一人になると判断が難しい,定期的にやってほしい\n'+
+'2025/04/10 10:40:00,,4,はい,服薬支援の事例,,';
+
+function loadSample(){
+  processCSVText(SAMPLE_CSV, 'サンプルデータ.csv');
+}
+
+// ドラッグ&ドロップ
+var dz=document.getElementById('dropzone');
+dz.addEventListener('dragover',function(e){e.preventDefault();dz.classList.add('drag-over');});
+dz.addEventListener('dragleave',function(){dz.classList.remove('drag-over');});
+dz.addEventListener('drop',function(e){
+  e.preventDefault();dz.classList.remove('drag-over');
+  var f=e.dataTransfer.files[0];
+  if(f)readFile(f);
+});
+function onFileSelect(input){if(input.files[0])readFile(input.files[0]);}
+
+function readFile(file){
+  gFilename=file.name;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    var text=e.target.result.replace(/^\uFEFF/,'');
+    // 文字化けチェック
+    if((text.match(/[ï¿½\uFFFD]/g)||[]).length>3){
+      var r2=new FileReader();
+      r2.onload=function(e2){processCSVText(e2.target.result.replace(/^\uFEFF/,''),file.name);};
+      r2.readAsText(file,'Shift-JIS');
+    } else {
+      processCSVText(text,file.name);
+    }
+  };
+  reader.readAsText(file,'UTF-8');
+}
+
+function processCSVText(text, filename){
+  gFilename=filename||gFilename;
+  var lines=text.split(/\r?\n/).filter(function(l){return l.trim();});
+  if(lines.length<2){alert('データが2行以上必要です');return;}
+  gHeaders=splitLine(lines[0]);
+  gRows=[];
+  for(var i=1;i<lines.length;i++){
+    var cols=splitLine(lines[i]);
+    if(!cols.filter(function(x){return x.trim();}).length)continue;
+    gRows.push(cols);
+  }
+  goToStep2();
+}
+
+function splitLine(line){
+  var res=[],cur='',inQ=false;
+  for(var i=0;i<line.length;i++){
+    var c=line[i];
+    if(c==='"'){inQ=!inQ;}
+    else if(c===','&&!inQ){res.push(cur.trim());cur='';}
+    else{cur+=c;}
+  }
+  res.push(cur.trim());
+  return res;
+}
+
+// STEP2: 設定UI
+function goToStep2(){
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('step1').style.display='none';
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step3').style.display='none';
+  setStepActive(2);
+
+  // フォーム名の推定
+  var fn=gFilename.replace(/\.csv$/i,'').replace(/_/g,' ');
+  document.getElementById('formName').value=fn;
+
+  // お名前列・タイムスタンプ列の推定
+  var nameIdx=guessCol(['回答者名','フルネーム','お名前','名前','氏名','name','Name','姓名']);
+  var tsIdx=guessCol(['タイムスタンプ','timestamp','Timestamp','日時','受付日時','回答日時']);
+
+  // セレクトボックス
+  buildSelect('nameCol',nameIdx,'（なし）');
+
+  // 列テーブル（タイムスタンプはデフォルト非表示）
+  var tbody=document.getElementById('colTableBody');
+  tbody.innerHTML='';
+  gHeaders.forEach(function(h,i){
+    var sample=getSample(i);
+    var isTs=(i===tsIdx);
+    var wide=sample&&sample.length>20;
+    var row=document.createElement('tr');
+    row.innerHTML=
+      '<td><label class="col-toggle"><input type="checkbox" id="col_show_'+i+'" '+((isTs||i===nameIdx)?'':'checked')+'></label></td>'+
+      '<td style="font-size:12px">'+h+'</td>'+
+      '<td><select id="col_wide_'+i+'" style="font-size:11px;padding:3px 6px">'+
+        '<option value="half"'+(wide?'':' selected')+'>半分</option>'+
+        '<option value="full"'+(wide?' selected':'')+'>全幅</option>'+
+      '</select></td>'+
+      '<td style="color:var(--text3);font-size:11px;max-width:200px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">'+sample+'</td>';
+    tbody.appendChild(row);
+  });
+}
+
+function guessCol(keywords){
+  for(var k=0;k<keywords.length;k++){
+    for(var i=0;i<gHeaders.length;i++){
+      if(gHeaders[i].indexOf(keywords[k])!==-1)return i;
+    }
+  }
+  return -1;
+}
+
+function getSample(colIdx){
+  for(var i=0;i<Math.min(3,gRows.length);i++){
+    var v=(gRows[i][colIdx]||'').trim();
+    if(v)return v;
+  }
+  return '';
+}
+
+function buildSelect(id, defaultIdx, noneLabel){
+  var sel=document.getElementById(id);
+  sel.innerHTML='<option value="-1">'+noneLabel+'</option>';
+  gHeaders.forEach(function(h,i){
+    var opt=document.createElement('option');
+    opt.value=i;opt.textContent=h;
+    if(i===defaultIdx)opt.selected=true;
+    sel.appendChild(opt);
+  });
+}
+
+// STEP3: カード生成
+function buildCards(){
+  var formName=document.getElementById('formName').value||'アンケート';
+  var nameColIdx=parseInt(document.getElementById('nameCol').value);
+
+  // 表示列リスト
+  var displayCols=[];
+  gHeaders.forEach(function(h,i){
+    var show=document.getElementById('col_show_'+i);
+    var wide=document.getElementById('col_wide_'+i);
+    if(show&&show.checked){
+      displayCols.push({idx:i,label:h,wide:wide&&wide.value==='full'});
+    }
+  });
+
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step3').style.display='block';
+  setStepActive(3);
+
+  // サマリー
+  document.getElementById('summaryArea').innerHTML=
+    '<div class="summary no-print">'+
+    '<div class="stat"><div class="stat-num">'+gRows.length+'</div><div class="stat-label">回答数</div></div>'+
+    '<div class="stat"><div class="stat-num">'+displayCols.length+'</div><div class="stat-label">表示項目数</div></div>'+
+    '</div>';
+
+  // カード
+  var html='<div class="cards-title no-print">個人回答シート（'+gRows.length+'件）</div><div class="cards">';
+  gRows.forEach(function(row){
+    var name=nameColIdx>=0?(row[nameColIdx]||'').trim()||'（匿名）':'（匿名）';
+    var av=initials(name);
+
+    html+='<div class="pcard">'+
+      '<div class="pcard-head">'+
+        '<div class="avatar">'+av+'</div>'+
+        '<div>'+
+          '<div class="pmeta">'+formName+'</div>'+
+          '<div class="pname">'+name+'</div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="pgrid">';
+
+    displayCols.forEach(function(col){
+      var val=(row[col.idx]||'').trim();
+      var wide=col.wide||(!val||val.length<10?false:true);
+      html+='<div class="pf'+(wide?' wide':'')+'">';
+      html+='<div class="pfl">'+col.label+'</div>';
+      html+='<div class="pfv'+(val?'':' empty')+'">'+( val ? val.replace(/\n/g,'<br>') : '記入なし' )+'</div>';
+      html+='</div>';
+    });
+
+    html+='</div></div>';
+  });
+  html+='</div>';
+  document.getElementById('cardsArea').innerHTML=html;
+}
+
+function initials(n){
+  if(!n||n==='（匿名）')return '?';
+  var p=n.trim().split(/[\s　]+/);
+  return p.length>=2?p[0].charAt(0)+p[1].charAt(0):n.slice(0,2);
+}
+
+function setStepActive(n){
+  for(var i=1;i<=3;i++){
+    var el=document.getElementById('st'+i);
+    el.className='step-tab'+(i===n?' active':i<n?' done':'');
+  }
+}
+
+function backToStep1(){
+  document.getElementById('step1').style.display='block';
+  document.getElementById('step2').style.display='none';
+  document.getElementById('step3').style.display='none';
+  document.getElementById('emptyState').style.display='none';
+  document.getElementById('cardsArea').innerHTML='';
+  document.getElementById('summaryArea').innerHTML='';
+  setStepActive(1);
+}
+function backToStep2(){
+  document.getElementById('step2').style.display='block';
+  document.getElementById('step3').style.display='none';
+  setStepActive(2);
+}
+</script>
+<div class="no-print" style="text-align:center;padding:2rem 0 1.5rem;font-size:11px;color:var(--text3);letter-spacing:.15em">CRAFTED BY MAKOTO 🤗</div>
+</body>
+</html>
